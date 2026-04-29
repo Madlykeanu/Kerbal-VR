@@ -83,9 +83,9 @@ namespace KerbalVR
 
 		static void SetCameraFOV(Camera camera, float fov)
 		{
-			if (!camera.stereoEnabled)
+			if (!Core.IsVrRunning)
 			{
-				// camera.fieldOfView = fov;
+				camera.fieldOfView = fov;
 			}
 		}
 
