@@ -391,15 +391,44 @@ namespace KerbalVR
 				m_isSprinting = false;
 			}
 
-			Vector3 tgtRpos =
-				movementThrottle.z * kerbalEVA.transform.forward +
-				movementThrottle.x * kerbalEVA.transform.right;
+			GetEvaMovementAxes(kerbalEVA, out Vector3 movementForward, out Vector3 movementRight, out Vector3 movementUp);
 
-			Vector3 packTgtRpos = tgtRpos + movementThrottle.y * kerbalEVA.transform.up;
+			Vector3 tgtRpos =
+				movementThrottle.z * movementForward +
+				movementThrottle.x * movementRight;
+
+			Vector3 packTgtRpos = tgtRpos + movementThrottle.y * movementUp;
 
 			kerbalEVA.tgtRpos = tgtRpos;
 			kerbalEVA.packTgtRPos = packTgtRpos;
 			kerbalEVA.ladderTgtRPos = packTgtRpos; // for now, same as jetpack (so up/down match)
+		}
+
+		private void GetEvaMovementAxes(KerbalEVA kerbalEVA, out Vector3 movementForward, out Vector3 movementRight, out Vector3 movementUp)
+		{
+			movementForward = kerbalEVA.transform.forward;
+			movementRight = kerbalEVA.transform.right;
+			movementUp = kerbalEVA.transform.up;
+
+			if (!kerbalEVA.SurfaceOrSplashed() || kerbalEVA.JetpackDeployed)
+			{
+				return;
+			}
+
+			movementUp = kerbalEVA.fUp.sqrMagnitude > 0.01f ? kerbalEVA.fUp.normalized : kerbalEVA.transform.up.normalized;
+
+			Vector3 flatForward = Vector3.ProjectOnPlane(kerbalEVA.transform.forward, movementUp);
+			Vector3 flatRight = Vector3.ProjectOnPlane(kerbalEVA.transform.right, movementUp);
+
+			if (flatForward.sqrMagnitude > 0.0001f)
+			{
+				movementForward = flatForward.normalized;
+			}
+
+			if (flatRight.sqrMagnitude > 0.0001f)
+			{
+				movementRight = flatRight.normalized;
+			}
 		}
 
 		public void HandleMovementInput_Postfix(KerbalEVA kerbalEVA)
