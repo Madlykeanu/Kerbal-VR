@@ -43,9 +43,10 @@ namespace KerbalVR
 
 		private void FreeIva_GetInput(ref FreeIva.KerbalIvaAddon.IVAInput input)
 		{
-			FirstPersonKerbalFlight.Instance.GetKerbalRotationInput(out float yaw, out float pitch, out float roll);
+			bool useRelativeMovement = FreeIva.KerbalIvaAddon.Instance.KerbalIva.UseRelativeMovement();
+			FirstPersonKerbalFlight.Instance.GetKerbalRotationInput(out float yaw, out float pitch, out float roll, !useRelativeMovement);
 
-			if (FreeIva.KerbalIvaAddon.Instance.KerbalIva.UseRelativeMovement())
+			if (useRelativeMovement)
 			{
 				pitch = 0.0f;
 				FreeIva.KerbalIvaAddon.Instance.KerbalIva.currentRelativeOrientation.x = 0;
@@ -64,7 +65,7 @@ namespace KerbalVR
 			{
 				input.MovementThrottle = FirstPersonKerbalFlight.Instance.GetKerbalMovementThrottle();
 
-				if (FreeIva.KerbalIvaAddon.Instance.KerbalIva.UseRelativeMovement())
+				if (useRelativeMovement)
 				{
 					float verticalMovement = input.MovementThrottle.y;
 					input.MovementThrottle.y = 0;

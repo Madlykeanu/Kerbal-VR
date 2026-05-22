@@ -23,6 +23,9 @@ namespace KerbalVR
 
 		static readonly float EVA_PRECISION_MODE_SCALE = 0.5f;
 		static float EVA_FLOATING_ROTATION_SCALE = 0.25f;
+		const float LOOK_STICK_DEADZONE = 0.15f;
+		const float LOOK_STICK_AXIS_RELEASE = 0.10f;
+		const float LOOK_STICK_AXIS_SWITCH_MARGIN = 0.20f;
 
 		bool m_jetpackPrecisionMode = true;
 		bool JetpackPrecisionMode
@@ -37,6 +40,7 @@ namespace KerbalVR
 
 		bool m_isSprinting = false;
 		bool m_lookStickIsRoll = false;
+		LookStickAxis m_lookStickAxis = LookStickAxis.None;
 
 		SteamVR_Action_Vector2 m_moveStickAction;
 		SteamVR_Action_Vector2 m_lookStickAction;
@@ -445,13 +449,71 @@ namespace KerbalVR
 			}
 		}
 
-		internal void GetKerbalRotationInput(out float yaw, out float pitch, out float roll)
+		internal void GetKerbalRotationInput(out float yaw, out float pitch, out float roll, bool allowPitch = true)
 		{
-			Vector2 lookStickInput = m_lookStickAction.GetAxis(SteamVR_Input_Sources.Any);
+			Vector2 lookStickInput = GetRotationLookStickInput(allowPitch);
 
 			yaw = m_lookStickIsRoll ? 0.0f : lookStickInput.x; // rotation around up
-			pitch = lookStickInput.y; // rotation around right
+			pitch = allowPitch ? -lookStickInput.y : 0.0f; // rotation around right
 			roll = m_lookStickIsRoll ? -lookStickInput.x : 0.0f; // rotation around forward
+		}
+
+		Vector2 GetRotationLookStickInput(bool allowPitch)
+		{
+			Vector2 lookStickInput = m_lookStickAction.GetAxis(SteamVR_Input_Sources.Any);
+			float absX = Mathf.Abs(lookStickInput.x);
+			float absY = Mathf.Abs(lookStickInput.y);
+
+			if (!allowPitch)
+			{
+				if (absX < LOOK_STICK_AXIS_RELEASE)
+				{
+					m_lookStickAxis = LookStickAxis.None;
+					return Vector2.zero;
+				}
+
+				m_lookStickAxis = LookStickAxis.Horizontal;
+				return new Vector2(ApplyLookStickDeadzone(lookStickInput.x), 0.0f);
+			}
+
+			if (absX < LOOK_STICK_AXIS_RELEASE && absY < LOOK_STICK_AXIS_RELEASE)
+			{
+				m_lookStickAxis = LookStickAxis.None;
+				return Vector2.zero;
+			}
+
+			if (m_lookStickAxis == LookStickAxis.None)
+			{
+				m_lookStickAxis = absX >= absY ? LookStickAxis.Horizontal : LookStickAxis.Vertical;
+			}
+			else if (m_lookStickAxis == LookStickAxis.Horizontal &&
+				absY > absX + LOOK_STICK_AXIS_SWITCH_MARGIN)
+			{
+				m_lookStickAxis = LookStickAxis.Vertical;
+			}
+			else if (m_lookStickAxis == LookStickAxis.Vertical &&
+				absX > absY + LOOK_STICK_AXIS_SWITCH_MARGIN)
+			{
+				m_lookStickAxis = LookStickAxis.Horizontal;
+			}
+
+			if (m_lookStickAxis == LookStickAxis.Horizontal)
+			{
+				return new Vector2(ApplyLookStickDeadzone(lookStickInput.x), 0.0f);
+			}
+
+			return new Vector2(0.0f, ApplyLookStickDeadzone(lookStickInput.y));
+		}
+
+		static float ApplyLookStickDeadzone(float value)
+		{
+			float magnitude = Mathf.Abs(value);
+			if (magnitude <= LOOK_STICK_DEADZONE)
+			{
+				return 0.0f;
+			}
+
+			return Mathf.Sign(value) * Mathf.Clamp01((magnitude - LOOK_STICK_DEADZONE) / (1.0f - LOOK_STICK_DEADZONE));
 		}
 
 		public void FPStateFloating_PreOnFixedUpdate_Postfix(KerbalEVA kerbalEVA)
@@ -544,6 +606,14 @@ namespace KerbalVR
 		private void SwapRollYaw_OnStateDown(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource)
 		{
 			m_lookStickIsRoll = !m_lookStickIsRoll;
+			m_lookStickAxis = LookStickAxis.None;
+		}
+
+		enum LookStickAxis
+		{
+			None,
+			Horizontal,
+			Vertical
 		}
 	}
 
