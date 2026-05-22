@@ -80,16 +80,6 @@ namespace KerbalVR
 			if (input.RotationInputEuler == Vector3.zero)
 			{
 				input.RotationInputEuler = new Vector3(pitch, yaw, roll);
-
-				if (!FreeIva.KerbalIvaAddon.Instance.KerbalIva.UseRelativeMovement())
-				{
-					Quaternion inputRotation = InternalCamera.Instance.transform.localRotation * Quaternion.Euler(input.RotationInputEuler) * Quaternion.Inverse(InternalCamera.Instance.transform.localRotation);
-					input.RotationInputEuler = inputRotation.eulerAngles;
-
-					if (input.RotationInputEuler.x > 180) input.RotationInputEuler.x -= 360;
-					if (input.RotationInputEuler.y > 180) input.RotationInputEuler.y -= 360;
-					if (input.RotationInputEuler.z > 180) input.RotationInputEuler.z -= 360;
-				}
 			}
 
 			input.Jump = FirstPersonKerbalFlight.Instance.GetJumpState();
@@ -123,6 +113,26 @@ namespace KerbalVR
 			// zero out the anchor's local transform so that we're directly connected to the kerbal body
 			InternalCamera.Instance.transform.parent.localPosition = Vector3.zero;
 			InternalCamera.Instance.transform.parent.localRotation = Quaternion.identity;
+		}
+	}
+
+	[HarmonyPatch(typeof(FreeIva.KerbalIvaController), nameof(FreeIva.KerbalIvaController.UpdateOrientation))]
+	class KerbalIvaController_UpdateOrientation_Patch
+	{
+		static void Prefix(FreeIva.KerbalIvaController __instance)
+		{
+			if (!Core.IsVrRunning ||
+				__instance == null ||
+				__instance.UseRelativeMovement() ||
+				InternalCamera.Instance == null)
+			{
+				return;
+			}
+
+			// FreeIVA's zero-g orientation update uses InternalCamera.transform.rotation as
+			// the base orientation. In VR, the camera's local rotation contains HMD tilt,
+			// which can make yaw input pitch/roll the body instead.
+			InternalCamera.Instance.transform.localRotation = Quaternion.identity;
 		}
 	}
 
